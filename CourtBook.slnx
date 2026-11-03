@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CourtBook.Api/CourtBook.Api.csproj" Id="7011a991-3b53-4366-bb88-1894cf403676" />
+    <Project Path="src/CourtBook.Application/CourtBook.Application.csproj" Id="7d5c6666-0a20-4152-b278-29e82996f0f8" />
+    <Project Path="src/CourtBook.Domain/CourtBook.Domain.csproj" Id="94f0039d-9701-4c8a-97d4-b38366bc1fba" />
+    <Project Path="src/CourtBook.Infrastructure/CourtBook.Infrastructure.csproj" Id="9c35eea0-cd3f-419c-aaeb-d4d6d6cb6627" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>

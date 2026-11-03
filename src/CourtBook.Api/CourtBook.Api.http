@@ -1,0 +1,6 @@
+@CourtBook.Api_HostAddress = http://localhost:5072
+
+GET {{CourtBook.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
