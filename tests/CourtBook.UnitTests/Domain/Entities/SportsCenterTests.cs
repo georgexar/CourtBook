@@ -1,0 +1,115 @@
+﻿using CourtBook.Domain.Common;
+using CourtBook.Domain.Entities;
+
+namespace CourtBook.UnitTests.Domain.Entities;
+
+public class SportsCenterTests
+{
+    private const string ValidName = "Piraeus Sports Center";
+    private const string ValidAddress = "Akti Miaouli 10";
+    private const string ValidCity = "Piraeus";
+
+    // ---------- Constructor ----------
+
+    [Fact]
+    public void Constructor_WithValidData_CreatesSportsCenter()
+    {
+        // Act
+        var center = new SportsCenter(ValidName, ValidAddress, ValidCity, "2101234567");
+
+        // Assert
+        Assert.Equal(ValidName, center.Name);
+        Assert.Equal(ValidAddress, center.Address);
+        Assert.Equal(ValidCity, center.City);
+        Assert.Equal("2101234567", center.PhoneNumber);
+        Assert.NotEqual(Guid.Empty, center.Id);
+    }
+
+    [Fact]
+    public void Constructor_TrimsWhitespace()
+    {
+        // Act
+        var center = new SportsCenter("  Padel Club  ", "  Syggrou 5 ", " Athens ");
+
+        // Assert
+        Assert.Equal("Padel Club", center.Name);
+        Assert.Equal("Syggrou 5", center.Address);
+        Assert.Equal("Athens", center.City);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_WithEmptyName_ThrowsDomainException(string name)
+    {
+        // Act & Assert
+        Assert.Throws<DomainException>(() => new SportsCenter(name, ValidAddress, ValidCity));
+    }
+
+    [Fact]
+    public void Constructor_WithTooLongName_ThrowsDomainException()
+    {
+        // Arrange
+        var tooLongName = new string('a', SportsCenter.NameMaxLength + 1);
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() => new SportsCenter(tooLongName, ValidAddress, ValidCity));
+    }
+
+    [Fact]
+    public void Constructor_WithNameAtMaxLength_CreatesSportsCenter()
+    {
+        // Arrange
+        var maxLengthName = new string('a', SportsCenter.NameMaxLength);
+
+        // Act
+        var center = new SportsCenter(maxLengthName, ValidAddress, ValidCity);
+
+        // Assert
+        Assert.Equal(SportsCenter.NameMaxLength, center.Name.Length);
+    }
+
+    // ---------- Rename ----------
+
+    [Fact]
+    public void Rename_WithValidName_ChangesName()
+    {
+        // Arrange
+        var center = new SportsCenter(ValidName, ValidAddress, ValidCity);
+
+        // Act
+        center.Rename("New Name");
+
+        // Assert
+        Assert.Equal("New Name", center.Name);
+    }
+
+    [Fact]
+    public void Rename_WithEmptyName_ThrowsAndKeepsOldName()
+    {
+        // Arrange
+        var center = new SportsCenter(ValidName, ValidAddress, ValidCity);
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() => center.Rename(""));
+        Assert.Equal(ValidName, center.Name);
+    }
+
+    // ---------- UpdatePhoneNumber ----------
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void UpdatePhoneNumber_WithEmptyValue_SetsPhoneNumberToNull(string? phoneNumber)
+    {
+        // Arrange
+        var center = new SportsCenter(ValidName, ValidAddress, ValidCity, "2101234567");
+
+        // Act
+        center.UpdatePhoneNumber(phoneNumber);
+
+        // Assert
+        Assert.Null(center.PhoneNumber);
+    }
+}
