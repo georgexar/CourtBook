@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using CourtBook.Domain.Common;
+using CourtBook.Domain.Enums;
 
 namespace CourtBook.Domain.Entities;
 
@@ -17,6 +19,10 @@ public class SportsCenter : BaseEntity
     public string City { get; private set; } = null!;
     public string? PhoneNumber { get; private set; }
 
+    private readonly List<Court> _courts = [];
+    public IReadOnlyCollection<Court> Courts => _courts.AsReadOnly();
+
+
     // Χρησιμοποιείται μόνο από το EF Core όταν διαβάζει από τη βάση
     private SportsCenter() { }
 
@@ -29,13 +35,13 @@ public class SportsCenter : BaseEntity
 
     public void Rename(string name)
     {
-        Name = Required(name, NameMaxLength, nameof(Name));
+        Name = Guard.Required(name, NameMaxLength, nameof(Name));
     }
 
     public void UpdateLocation(string address, string city)
     {
-        Address = Required(address, AddressMaxLength, nameof(Address));
-        City = Required(city, CityMaxLength, nameof(City));
+        Address = Guard.Required(address, AddressMaxLength, nameof(Address));
+        City = Guard.Required(city, CityMaxLength, nameof(City));
     }
 
     public void UpdatePhoneNumber(string? phoneNumber)
@@ -54,17 +60,20 @@ public class SportsCenter : BaseEntity
         PhoneNumber = phoneNumber;
     }
 
-    private static string Required(string value, int maxLength, string fieldName)
+    public Court AddCourt(string name, SportType sportType)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            throw new DomainException($"{fieldName} is required.");
+        var court = new Court(Id, name, sportType);
 
-        value = value.Trim();
+        var nameExists = _courts.Any(c =>
+            string.Equals(c.Name, court.Name, StringComparison.OrdinalIgnoreCase));
 
-        if (value.Length > maxLength)
-            throw new DomainException($"{fieldName} must be at most {maxLength} characters.");
+        if (nameExists)
+            throw new DomainException($"A court named '{court.Name}' already exists in this sports center.");
 
-        return value;
+        _courts.Add(court);
+        return court;
     }
+
+
 }
 

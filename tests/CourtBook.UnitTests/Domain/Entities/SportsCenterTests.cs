@@ -1,5 +1,7 @@
 ﻿using CourtBook.Domain.Common;
 using CourtBook.Domain.Entities;
+using CourtBook.Domain.Enums;
+using CourtBook.UnitTests.TestData;
 
 namespace CourtBook.UnitTests.Domain.Entities;
 
@@ -8,6 +10,7 @@ public class SportsCenterTests
     private const string ValidName = "Piraeus Sports Center";
     private const string ValidAddress = "Akti Miaouli 10";
     private const string ValidCity = "Piraeus";
+    private const string ValidPhoneNumber = "2101234567";
 
     // ---------- Constructor ----------
 
@@ -21,7 +24,7 @@ public class SportsCenterTests
         Assert.Equal(ValidName, center.Name);
         Assert.Equal(ValidAddress, center.Address);
         Assert.Equal(ValidCity, center.City);
-        Assert.Equal("2101234567", center.PhoneNumber);
+        Assert.Equal(ValidPhoneNumber, center.PhoneNumber);
         Assert.NotEqual(Guid.Empty, center.Id);
     }
 
@@ -75,7 +78,7 @@ public class SportsCenterTests
     public void Rename_WithValidName_ChangesName()
     {
         // Arrange
-        var center = new SportsCenter(ValidName, ValidAddress, ValidCity);
+        var center = DomainFactory.CreateSportsCenter();
 
         // Act
         center.Rename("New Name");
@@ -88,7 +91,7 @@ public class SportsCenterTests
     public void Rename_WithEmptyName_ThrowsAndKeepsOldName()
     {
         // Arrange
-        var center = new SportsCenter(ValidName, ValidAddress, ValidCity);
+        var center = DomainFactory.CreateSportsCenter();
 
         // Act & Assert
         Assert.Throws<DomainException>(() => center.Rename(""));
@@ -104,7 +107,7 @@ public class SportsCenterTests
     public void UpdatePhoneNumber_WithEmptyValue_SetsPhoneNumberToNull(string? phoneNumber)
     {
         // Arrange
-        var center = new SportsCenter(ValidName, ValidAddress, ValidCity, "2101234567");
+        var center = DomainFactory.CreateSportsCenter(phoneNumber: ValidPhoneNumber);
 
         // Act
         center.UpdatePhoneNumber(phoneNumber);
@@ -112,4 +115,54 @@ public class SportsCenterTests
         // Assert
         Assert.Null(center.PhoneNumber);
     }
+
+
+
+    // ---------- AddCourt ----------
+
+    [Fact]
+    public void AddCourt_WithValidData_AddsCourtToCenter()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+
+        // Act
+        var court = center.AddCourt("Padel 1", SportType.Padel);
+
+        // Assert
+        Assert.Single(center.Courts);
+        Assert.Contains(court, center.Courts);
+        Assert.Equal("Padel 1", court.Name);
+        Assert.Equal(SportType.Padel, court.SportType);
+        Assert.Equal(center.Id, court.SportsCenterId);
+        Assert.True(court.IsActive);
+    }
+
+    [Fact]
+    public void AddCourt_WithDuplicateName_ThrowsDomainException()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+        center.AddCourt("Padel 1", SportType.Padel);
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() => center.AddCourt("  PADEL 1 ", SportType.Padel));
+        Assert.Single(center.Courts);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public void AddCourt_WithInvalidSportType_ThrowsDomainException(int invalidSportType)
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() => center.AddCourt("Court 1", (SportType)invalidSportType));
+        Assert.Empty(center.Courts);
+    }
+
+
+
 }
