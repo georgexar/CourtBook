@@ -23,4 +23,15 @@ public static class Guard
 
         return value;
     }
+
+
+    public static Guid NotEmpty(Guid value, string fieldName)
+    {
+        if (value == Guid.Empty)
+            throw new DomainException($"{fieldName} is required.");
+
+        return value;
+    }
+
+
 }
