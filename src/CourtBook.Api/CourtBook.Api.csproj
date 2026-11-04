@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>d05c73b2-0e53-4bea-a593-a2249c8d0b07</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,6 +13,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CourtBook.Application\CourtBook.Application.csproj" />
+    <ProjectReference Include="..\CourtBook.Infrastructure\CourtBook.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

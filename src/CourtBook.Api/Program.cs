@@ -1,4 +1,10 @@
+using CourtBook.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
+    ?? throw new InvalidOperationException("Connection string 'CourtBookDb' was not found.");
+
+builder.Services.AddInfrastructure(connectionString);
 
 // Add services to the container.
 
