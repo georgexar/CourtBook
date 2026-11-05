@@ -13,5 +13,9 @@
   <ItemGroup>
     <ProjectReference Include="..\CourtBook.Domain\CourtBook.Domain.csproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="CourtBook.UnitTests" />
+  </ItemGroup>
+	
+	
 </Project>

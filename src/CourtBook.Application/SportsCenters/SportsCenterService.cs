@@ -1,6 +1,7 @@
 ﻿using CourtBook.Application.Common.Interfaces;
 using CourtBook.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using CourtBook.Application.Common.Exceptions;
 
 namespace CourtBook.Application.SportsCenters;
 
@@ -50,4 +51,39 @@ internal sealed class SportsCenterService(IAppDbContext db) : ISportsCenterServi
                     .ToList()))
             .FirstOrDefaultAsync(cancellationToken);
     }
+    public async Task<Guid> AddCourtAsync(Guid centerId, AddCourtRequest request, CancellationToken cancellationToken = default)
+    {
+        var center = await GetCenterWithCourtsAsync(centerId, cancellationToken);
+
+        var court = center.AddCourt(request.Name, request.SportType);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return court.Id;
+    }
+
+    public async Task SetCourtActiveAsync(Guid centerId, Guid courtId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        var center = await GetCenterWithCourtsAsync(centerId, cancellationToken);
+
+        var court = center.Courts.FirstOrDefault(c => c.Id == courtId)
+            ?? throw new NotFoundException($"Court '{courtId}' was not found in sports center '{centerId}'.");
+
+        if (isActive)
+            court.Activate();
+        else
+            court.Deactivate();
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<SportsCenter> GetCenterWithCourtsAsync(Guid centerId, CancellationToken cancellationToken)
+    {
+        return await db.SportsCenters
+            .Include(c => c.Courts)
+            .FirstOrDefaultAsync(c => c.Id == centerId, cancellationToken)
+            ?? throw new NotFoundException($"Sports center '{centerId}' was not found.");
+    }
+
+
 }

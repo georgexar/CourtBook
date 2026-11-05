@@ -1,6 +1,7 @@
 ﻿using CourtBook.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using CourtBook.Application.Common.Exceptions;
 
 namespace CourtBook.Api.ErrorHandling;
 
@@ -16,6 +17,7 @@ public sealed class GlobalExceptionHandler(
         var (statusCode, title) = exception switch
         {
             DomainException => (StatusCodes.Status400BadRequest, "Validation error"),
+            NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
             _ => (StatusCodes.Status500InternalServerError, "Server error")
         };
 
