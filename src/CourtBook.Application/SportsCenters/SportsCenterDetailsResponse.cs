@@ -8,7 +8,8 @@ public record SportsCenterDetailsResponse(
     string Address,
     string City,
     string? PhoneNumber,
-    IReadOnlyList<CourtResponse> Courts);
+    IReadOnlyList<CourtResponse> Courts,
+    IReadOnlyList<OpeningHoursDto> OpeningHours);
 
 public record CourtResponse(
     Guid Id,

@@ -6,6 +6,8 @@ using CourtBook.UnitTests.TestData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
 using CourtBook.Domain.Entities;
+using CourtBook.Domain.ValueObjects;
+
 
 namespace CourtBook.UnitTests.Application.SportsCenters;
 
@@ -46,6 +48,13 @@ public sealed class SportsCenterServiceTests : IDisposable
     {
         await using var context = _database.CreateContext();
         return await context.Courts.SingleAsync(c => c.Id == courtId);
+    }
+
+    // Assert: διαβάζει ένα κέντρο φρέσκο από τη βάση (μαζί με το ωράριο)
+    private async Task<SportsCenter> FindCenterAsync(Guid centerId)
+    {
+        await using var context = _database.CreateContext();
+        return await context.SportsCenters.SingleAsync(c => c.Id == centerId);
     }
 
 
@@ -253,6 +262,28 @@ public sealed class SportsCenterServiceTests : IDisposable
         Assert.True(unchanged.IsActive);
     }
 
+    // ---------- SetOpeningHoursAsync ----------
+
+    [Fact]
+    public async Task SetOpeningHoursAsync_ReplacesScheduleInDatabase()
+    {
+        // Arrange: κέντρο ανοιχτό μόνο Δευτέρα
+        var center = DomainFactory.CreateSportsCenter();
+        center.SetOpeningHours([new DailyOpeningHours(DayOfWeek.Monday, new(8, 0), new(23, 0))]);
+        await SaveAsync(center);
+
+        // Act: νέο ωράριο, μόνο Σάββατο
+        var request = new SetOpeningHoursRequest(
+            [new OpeningHoursDto(DayOfWeek.Saturday, new(9, 0), new(21, 0))]);
+
+        await RunServiceAsync(service => service.SetOpeningHoursAsync(center.Id, request));
+
+        // Assert: στη βάση υπάρχει ΜΟΝΟ το Σάββατο
+        var saved = await FindCenterAsync(center.Id);
+        var saturday = Assert.Single(saved.OpeningHours);
+        Assert.Equal(DayOfWeek.Saturday, saturday.DayOfWeek);
+        Assert.Equal(new TimeOnly(21, 0), saturday.ClosesAt);
+    }
 
 
 }

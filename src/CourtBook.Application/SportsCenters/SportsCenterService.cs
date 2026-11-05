@@ -2,6 +2,7 @@
 using CourtBook.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using CourtBook.Application.Common.Exceptions;
+using CourtBook.Domain.ValueObjects;
 
 namespace CourtBook.Application.SportsCenters;
 
@@ -48,6 +49,10 @@ internal sealed class SportsCenterService(IAppDbContext db) : ISportsCenterServi
                         court.Name,
                         court.SportType,
                         court.IsActive))
+                    .ToList(),
+                c.OpeningHours
+                    .OrderBy(h => h.DayOfWeek)
+                    .Select(h => new OpeningHoursDto(h.DayOfWeek, h.OpensAt, h.ClosesAt))
                     .ToList()))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -77,6 +82,7 @@ internal sealed class SportsCenterService(IAppDbContext db) : ISportsCenterServi
         await db.SaveChangesAsync(cancellationToken);
     }
 
+
     private async Task<SportsCenter> GetCenterWithCourtsAsync(Guid centerId, CancellationToken cancellationToken)
     {
         return await db.SportsCenters
@@ -84,6 +90,18 @@ internal sealed class SportsCenterService(IAppDbContext db) : ISportsCenterServi
             .FirstOrDefaultAsync(c => c.Id == centerId, cancellationToken)
             ?? throw new NotFoundException($"Sports center '{centerId}' was not found.");
     }
+    public async Task SetOpeningHoursAsync(Guid centerId, SetOpeningHoursRequest request, CancellationToken cancellationToken = default)
+    {
+        var center = await db.SportsCenters
+            .FirstOrDefaultAsync(c => c.Id == centerId, cancellationToken)
+            ?? throw new NotFoundException($"Sports center '{centerId}' was not found.");
 
+        var schedule = request.Days
+            .Select(day => new DailyOpeningHours(day.DayOfWeek, day.OpensAt, day.ClosesAt));
+
+        center.SetOpeningHours(schedule);
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
 
 }

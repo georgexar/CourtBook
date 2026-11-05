@@ -11,5 +11,6 @@ public interface ISportsCenterService
     Task<Guid> AddCourtAsync(Guid centerId, AddCourtRequest request, CancellationToken cancellationToken = default);
 
     Task SetCourtActiveAsync(Guid centerId, Guid courtId, bool isActive, CancellationToken cancellationToken = default);
+    Task SetOpeningHoursAsync(Guid centerId, SetOpeningHoursRequest request, CancellationToken cancellationToken = default);
 
 }

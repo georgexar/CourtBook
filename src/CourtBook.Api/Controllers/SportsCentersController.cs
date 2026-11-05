@@ -37,4 +37,17 @@ public class SportsCentersController(ISportsCenterService sportsCenterService) :
             ? NotFound()
             : Ok(center);
     }
+
+    [HttpPut("{id:guid}/opening-hours")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetOpeningHours(Guid id, SetOpeningHoursRequest request, CancellationToken cancellationToken)
+    {
+        await sportsCenterService.SetOpeningHoursAsync(id, request, cancellationToken);
+
+        return NoContent();
+    }
+
+
 }
