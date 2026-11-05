@@ -1,9 +1,14 @@
 using CourtBook.Infrastructure;
+using Scalar.AspNetCore;
+using CourtBook.Application;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
     ?? throw new InvalidOperationException("Connection string 'CourtBookDb' was not found.");
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
 
 // Add services to the container.
@@ -18,6 +23,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
