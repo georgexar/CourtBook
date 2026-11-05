@@ -1,6 +1,7 @@
 ﻿using CourtBook.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using CourtBook.Domain.ValueObjects;
 
 namespace CourtBook.Infrastructure.Persistence.Configurations;
 
@@ -37,5 +38,24 @@ public class SportsCenterConfiguration : IEntityTypeConfiguration<SportsCenter>
         // Το EF Core γράφει και διαβάζει τη λίστα μέσω του private πεδίου _courts
         builder.Navigation(c => c.Courts)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Το ωράριο είναι value object που ανήκει στο κέντρο
+        builder.OwnsMany(c => c.OpeningHours, hours =>
+        {
+            hours.ToTable("SportsCenterOpeningHours");
+
+            hours.WithOwner().HasForeignKey("SportsCenterId");
+
+            hours.Property<int>("Id");
+            hours.HasKey("Id");
+
+            hours.Property(h => h.DayOfWeek).IsRequired();
+            hours.Property(h => h.OpensAt).IsRequired();
+            hours.Property(h => h.ClosesAt).IsRequired();
+        });
+
+        builder.Navigation(c => c.OpeningHours)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
     }
 }

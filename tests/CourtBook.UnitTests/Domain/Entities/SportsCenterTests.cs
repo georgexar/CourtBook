@@ -2,6 +2,8 @@
 using CourtBook.Domain.Entities;
 using CourtBook.Domain.Enums;
 using CourtBook.UnitTests.TestData;
+using CourtBook.Domain.ValueObjects;
+
 
 namespace CourtBook.UnitTests.Domain.Entities;
 
@@ -164,5 +166,64 @@ public class SportsCenterTests
     }
 
 
+    // ---------- SetOpeningHours ----------
 
+    private static DailyOpeningHours Hours(DayOfWeek day, string opens = "08:00", string closes = "23:00") =>
+        new(day, TimeOnly.Parse(opens), TimeOnly.Parse(closes));
+
+    [Fact]
+    public void SetOpeningHours_WithValidSchedule_SetsOpeningHours()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+
+        // Act
+        center.SetOpeningHours([Hours(DayOfWeek.Monday), Hours(DayOfWeek.Tuesday)]);
+
+        // Assert
+        Assert.Equal(2, center.OpeningHours.Count);
+        Assert.NotNull(center.GetOpeningHoursFor(DayOfWeek.Monday));
+    }
+
+    [Fact]
+    public void SetOpeningHours_ReplacesPreviousSchedule()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+        center.SetOpeningHours([Hours(DayOfWeek.Monday), Hours(DayOfWeek.Tuesday)]);
+
+        // Act
+        center.SetOpeningHours([Hours(DayOfWeek.Saturday, "09:00", "21:00")]);
+
+        // Assert: μόνο το νέο ωράριο
+        var saturday = Assert.Single(center.OpeningHours);
+        Assert.Equal(DayOfWeek.Saturday, saturday.DayOfWeek);
+        Assert.Null(center.GetOpeningHoursFor(DayOfWeek.Monday));
+    }
+
+    [Fact]
+    public void SetOpeningHours_WithDuplicateDay_ThrowsAndKeepsPreviousSchedule()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+        center.SetOpeningHours([Hours(DayOfWeek.Friday)]);
+
+        // Act & Assert
+        Assert.Throws<DomainException>(() =>
+            center.SetOpeningHours([Hours(DayOfWeek.Monday), Hours(DayOfWeek.Monday, "09:00", "22:00")]));
+
+        var friday = Assert.Single(center.OpeningHours);
+        Assert.Equal(DayOfWeek.Friday, friday.DayOfWeek);
+    }
+
+    [Fact]
+    public void GetOpeningHoursFor_ClosedDay_ReturnsNull()
+    {
+        // Arrange
+        var center = DomainFactory.CreateSportsCenter();
+        center.SetOpeningHours([Hours(DayOfWeek.Monday)]);
+
+        // Act & Assert
+        Assert.Null(center.GetOpeningHoursFor(DayOfWeek.Sunday));
+    }
 }

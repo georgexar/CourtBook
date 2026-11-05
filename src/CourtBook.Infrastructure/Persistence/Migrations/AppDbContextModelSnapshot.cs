@@ -151,6 +151,41 @@ namespace CourtBook.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CourtBook.Domain.Entities.SportsCenter", b =>
                 {
+                    b.OwnsMany("CourtBook.Domain.ValueObjects.DailyOpeningHours", "OpeningHours", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
+
+                            b1.Property<TimeOnly>("ClosesAt")
+                                .HasColumnType("time");
+
+                            b1.Property<int>("DayOfWeek")
+                                .HasColumnType("int");
+
+                            b1.Property<TimeOnly>("OpensAt")
+                                .HasColumnType("time");
+
+                            b1.Property<Guid>("SportsCenterId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("SportsCenterId");
+
+                            b1.ToTable("SportsCenterOpeningHours", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("SportsCenterId");
+                        });
+
+                    b.Navigation("OpeningHours");
+                });
+
+            modelBuilder.Entity("CourtBook.Domain.Entities.SportsCenter", b =>
+                {
                     b.Navigation("Courts");
                 });
 #pragma warning restore 612, 618

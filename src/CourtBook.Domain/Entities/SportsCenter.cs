@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using CourtBook.Domain.Common;
 using CourtBook.Domain.Enums;
+using CourtBook.Domain.ValueObjects;
 
 namespace CourtBook.Domain.Entities;
 
@@ -21,7 +22,8 @@ public class SportsCenter : BaseEntity
 
     private readonly List<Court> _courts = [];
     public IReadOnlyCollection<Court> Courts => _courts.AsReadOnly();
-
+    private readonly List<DailyOpeningHours> _openingHours = [];
+    public IReadOnlyCollection<DailyOpeningHours> OpeningHours => _openingHours.AsReadOnly();
 
     // Χρησιμοποιείται μόνο από το EF Core όταν διαβάζει από τη βάση
     private SportsCenter() { }
@@ -73,7 +75,25 @@ public class SportsCenter : BaseEntity
         _courts.Add(court);
         return court;
     }
+    public void SetOpeningHours(IEnumerable<DailyOpeningHours> openingHours)
+    {
+        var newSchedule = openingHours.ToList();
 
+        var duplicateDay = newSchedule
+            .GroupBy(h => h.DayOfWeek)
+            .FirstOrDefault(group => group.Count() > 1);
+
+        if (duplicateDay is not null)
+            throw new DomainException($"Opening hours for {duplicateDay.Key} are defined more than once.");
+
+        _openingHours.Clear();
+        _openingHours.AddRange(newSchedule);
+    }
+
+    public DailyOpeningHours? GetOpeningHoursFor(DayOfWeek dayOfWeek)
+    {
+        return _openingHours.FirstOrDefault(h => h.DayOfWeek == dayOfWeek);
+    }
 
 }
 
