@@ -1,6 +1,7 @@
 ﻿using CourtBook.Application.SportsCenters;
 using Microsoft.Extensions.DependencyInjection;
 using CourtBook.Application.Bookings.Rules;
+using CourtBook.Application.Bookings;
 
 namespace CourtBook.Application;
 
@@ -9,6 +10,8 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<ISportsCenterService, SportsCenterService>();
+        services.AddScoped<IBookingService, BookingService>();
+
 
         // Κανόνες κράτησης (Strategy pattern): νέος κανόνας = μία γραμμή εδώ
         services.AddSingleton<IBookingRule, CourtMustBeActiveRule>();
@@ -16,6 +19,8 @@ public static class DependencyInjection
         services.AddSingleton<IBookingRule, WithinOpeningHoursRule>();
         services.AddSingleton<IBookingRule, NoOverlapRule>();
         services.AddSingleton<IBookingRule, MaxActiveBookingsPerUserRule>();
+
+       
 
 
         return services;

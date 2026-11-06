@@ -17,6 +17,7 @@ public sealed class GlobalExceptionHandler(
         var (statusCode, title) = exception switch
         {
             DomainException => (StatusCodes.Status400BadRequest, "Validation error"),
+            BookingRuleViolationException => (StatusCodes.Status400BadRequest, "Booking rules violated"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
             _ => (StatusCodes.Status500InternalServerError, "Server error")
         };
@@ -24,20 +25,25 @@ public sealed class GlobalExceptionHandler(
         if (statusCode == StatusCodes.Status500InternalServerError)
             logger.LogError(exception, "Unhandled exception");
 
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = title,
+            Detail = statusCode == StatusCodes.Status500InternalServerError
+                ? "An unexpected error occurred."
+                : exception.Message
+        };
+
+        if (exception is BookingRuleViolationException ruleViolation)
+            problemDetails.Extensions["errors"] = ruleViolation.Errors;
+
         httpContext.Response.StatusCode = statusCode;
 
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             Exception = exception,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = statusCode,
-                Title = title,
-                Detail = statusCode == StatusCodes.Status500InternalServerError
-                    ? "An unexpected error occurred."
-                    : exception.Message
-            }
+            ProblemDetails = problemDetails
         });
     }
 }
