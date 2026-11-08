@@ -75,4 +75,53 @@ internal sealed class BookingService(
             .Select(b => new BookingResponse(b.Id, b.CourtId, b.UserId, b.StartTime, b.EndTime, b.Status))
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<AvailabilityResponse> GetAvailabilityAsync(
+       Guid courtId,
+       DateOnly date,
+       int durationMinutes,
+       CancellationToken cancellationToken = default)
+    {
+        var duration = TimeSpan.FromMinutes(durationMinutes);
+
+        if (!AllowedDurationRule.AllowedDurations.Contains(duration))
+            throw new BookingRuleViolationException(["Duration must be 60 or 90 minutes."]);
+
+        // 1. Το κέντρο με το γήπεδο και το ωράριο (μόνο ανάγνωση)
+        var center = await db.SportsCenters
+            .AsNoTracking()
+            .Include(c => c.Courts)
+            .FirstOrDefaultAsync(c => c.Courts.Any(court => court.Id == courtId), cancellationToken)
+            ?? throw new NotFoundException($"Court '{courtId}' was not found.");
+
+        var court = center.Courts.Single(c => c.Id == courtId);
+        var timeZone = AppTimeZone.Default;
+
+        // 2. ΕΝΑ query: όλες οι ενεργές κρατήσεις του γηπέδου που «αγγίζουν» αυτή τη μέρα
+        var dayStart = AvailabilityCalculator.ToInstant(date, TimeOnly.MinValue, timeZone);
+        var dayEnd = AvailabilityCalculator.ToInstant(date.AddDays(1), TimeOnly.MinValue, timeZone);
+
+        var bookings = await db.Bookings
+            .AsNoTracking()
+            .Where(b => b.CourtId == courtId
+                     && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+                     && b.StartTime < dayEnd
+                     && b.EndTime > dayStart)
+            .ToListAsync(cancellationToken);
+
+        // 3. Ο υπολογισμός γίνεται στη μνήμη
+        IReadOnlyList<TimeSlotResponse> slots = court.IsActive
+            ? AvailabilityCalculator.Calculate(
+                center.GetOpeningHoursFor(date.DayOfWeek),
+                date,
+                duration,
+                bookings,
+                timeZone,
+                timeProvider.GetUtcNow())
+            : [];
+
+        return new AvailabilityResponse(courtId, date, durationMinutes, slots);
+    }
+
+
 }

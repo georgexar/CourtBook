@@ -2,7 +2,7 @@
 
 internal sealed class AllowedDurationRule : IBookingRule
 {
-    private static readonly TimeSpan[] AllowedDurations =
+    internal static readonly TimeSpan[] AllowedDurations =
     [
         TimeSpan.FromMinutes(60),
         TimeSpan.FromMinutes(90)
