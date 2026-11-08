@@ -10,4 +10,5 @@ public record BookingResponse(
     DateTimeOffset End,
     BookingStatus Status,
     decimal Price,
-    string Currency);
+    string Currency,
+    bool IsLateCancellation);

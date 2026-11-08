@@ -230,4 +230,5 @@ public class BookingTests
         Assert.Throws<DomainException>(() => booking.MarkAsNoShow(beforeStart));
     }
 
+
 }

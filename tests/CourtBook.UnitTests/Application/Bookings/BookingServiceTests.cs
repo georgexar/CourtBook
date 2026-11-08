@@ -93,6 +93,25 @@ public sealed class BookingServiceTests : IDisposable
         await using var context = _database.CreateContext();
         return await context.Bookings.CountAsync();
     }
+    // Act: τρέχει κάτι στο service, με δικό του context
+    private async Task RunServiceAsync(Func<BookingService, Task> action)
+    {
+        await using var context = _database.CreateContext();
+        await action(new BookingService(context, AllRules, PriceCalculator, _timeProvider));
+    }
+
+    private async Task<T> RunServiceAsync<T>(Func<BookingService, Task<T>> action)
+    {
+        await using var context = _database.CreateContext();
+        return await action(new BookingService(context, AllRules, PriceCalculator, _timeProvider));
+    }
+
+    // Assert: διαβάζει μια κράτηση φρέσκια από τη βάση
+    private async Task<Booking> FindBookingAsync(Guid bookingId)
+    {
+        await using var context = _database.CreateContext();
+        return await context.Bookings.SingleAsync(b => b.Id == bookingId);
+    }
 
     // ========== Tests ==========
 
@@ -236,5 +255,117 @@ public sealed class BookingServiceTests : IDisposable
         var saved = await context.Bookings.SingleAsync(b => b.Id == id);
 
         Assert.Equal(new Money((decimal)expectedPrice), saved.Price);
+    }
+
+    // ---------- CancelAsync ----------
+
+    [Fact]
+    public async Task CancelAsync_ByOwnerMoreThan24HoursBefore_CancelsWithoutLateFlag()
+    {
+        // Arrange: κράτηση Πέμπτη 19:00, «τώρα» Τρίτη 12:00 (55 ώρες πριν)
+        var (center, court) = CenterWithCourt();
+        var booking = ExistingBooking(court, hour: 19);
+        await SaveAsync(center);
+        await SaveAsync(booking);
+
+        // Act
+        await RunServiceAsync(service => service.CancelAsync(booking.Id, _userId));
+
+        // Assert
+        var saved = await FindBookingAsync(booking.Id);
+        Assert.Equal(BookingStatus.Cancelled, saved.Status);
+        Assert.False(saved.IsLateCancellation);
+    }
+
+    [Fact]
+    public async Task CancelAsync_LessThan24HoursBefore_MarksLateCancellation()
+    {
+        // Arrange
+        var (center, court) = CenterWithCourt();
+        var booking = ExistingBooking(court, hour: 19);
+        await SaveAsync(center);
+        await SaveAsync(booking);
+
+        _timeProvider.Advance(TimeSpan.FromHours(46));   // τώρα: Πέμπτη 10:00, 9 ώρες πριν
+
+        // Act
+        await RunServiceAsync(service => service.CancelAsync(booking.Id, _userId));
+
+        // Assert
+        var saved = await FindBookingAsync(booking.Id);
+        Assert.True(saved.IsLateCancellation);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ByAnotherUser_ThrowsNotFoundAndKeepsBooking()
+    {
+        // Arrange
+        var (center, court) = CenterWithCourt();
+        var booking = ExistingBooking(court, hour: 19);
+        await SaveAsync(center);
+        await SaveAsync(booking);
+
+        var anotherUser = Guid.CreateVersion7();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            RunServiceAsync(service => service.CancelAsync(booking.Id, anotherUser)));
+
+        var saved = await FindBookingAsync(booking.Id);
+        Assert.Equal(BookingStatus.Confirmed, saved.Status);
+    }
+
+    // ---------- GetForUserAsync ----------
+
+    [Fact]
+    public async Task GetForUserAsync_ReturnsOnlyUsersBookingsNewestFirstInPages()
+    {
+        // Arrange: 3 κρατήσεις του χρήστη, 1 άλλου χρήστη
+        var (center, court) = CenterWithCourt();
+        await SaveAsync(center);
+        await SaveAsync(
+            ExistingBooking(court, hour: 8),
+            ExistingBooking(court, hour: 10),
+            ExistingBooking(court, hour: 12),
+            ExistingBooking(court, hour: 14, userId: Guid.CreateVersion7()));
+
+        // Act
+        var firstPage = await RunServiceAsync(service => service.GetForUserAsync(_userId, page: 1, pageSize: 2));
+        var secondPage = await RunServiceAsync(service => service.GetForUserAsync(_userId, page: 2, pageSize: 2));
+
+        // Assert: σελίδα 1 → 12:00, 10:00
+        Assert.Equal(3, firstPage.TotalCount);
+        Assert.Equal(2, firstPage.TotalPages);
+        Assert.True(firstPage.HasNextPage);
+        Assert.Equal([Thursday(12), Thursday(10)], firstPage.Items.Select(b => b.Start));
+
+        // σελίδα 2 → 08:00
+        var last = Assert.Single(secondPage.Items);
+        Assert.Equal(Thursday(8), last.Start);
+        Assert.False(secondPage.HasNextPage);
+    }
+
+    [Fact]
+    public async Task GetForUserAsync_WithStatusFilter_ReturnsOnlyMatchingBookings()
+    {
+        // Arrange: 2 confirmed, 1 cancelled
+        var (center, court) = CenterWithCourt();
+        await SaveAsync(center);
+
+        var cancelled = ExistingBooking(court, hour: 12);
+        cancelled.Cancel(DomainFactory.Now);
+
+        await SaveAsync(
+            ExistingBooking(court, hour: 8),
+            ExistingBooking(court, hour: 10),
+            cancelled);
+
+        // Act
+        var result = await RunServiceAsync(service =>
+            service.GetForUserAsync(_userId, page: 1, pageSize: 10, status: BookingStatus.Cancelled));
+
+        // Assert
+        var only = Assert.Single(result.Items);
+        Assert.Equal(BookingStatus.Cancelled, only.Status);
     }
 }

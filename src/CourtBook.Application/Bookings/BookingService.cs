@@ -7,7 +7,7 @@ using CourtBook.Domain.Enums;
 using CourtBook.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using CourtBook.Application.Bookings.Pricing;
-
+using System.Linq.Expressions;
 
 namespace CourtBook.Application.Bookings;
 
@@ -17,6 +17,20 @@ internal sealed class BookingService(
     BookingPriceCalculator priceCalculator,
     TimeProvider timeProvider) : IBookingService
 {
+    // Μετατροπή Booking → BookingResponse, που το EF Core μεταφράζει σε SQL
+    private static readonly Expression<Func<Booking, BookingResponse>> ToResponse = b =>
+        new BookingResponse(
+            b.Id,
+            b.CourtId,
+            b.UserId,
+            b.StartTime,
+            b.EndTime,
+            b.Status,
+            b.Price.Amount,
+            b.Price.Currency,
+            b.IsLateCancellation);
+
+
     public async Task<Guid> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
     {
         // 1. Το κέντρο που έχει αυτό το γήπεδο, με όλα τα γήπεδα και το ωράριό του
@@ -78,9 +92,7 @@ internal sealed class BookingService(
         return await db.Bookings
             .AsNoTracking()
             .Where(b => b.Id == id)
-            .Select(b => new BookingResponse(
-                b.Id, b.CourtId, b.UserId, b.StartTime, b.EndTime, b.Status,
-                b.Price.Amount, b.Price.Currency))
+            .Select(ToResponse)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -130,6 +142,46 @@ internal sealed class BookingService(
 
         return new AvailabilityResponse(courtId, date, durationMinutes, slots);
     }
+    public async Task CancelAsync(Guid bookingId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var booking = await db.Bookings
+            .FirstOrDefaultAsync(b => b.Id == bookingId && b.UserId == userId, cancellationToken)
+            ?? throw new NotFoundException($"Booking '{bookingId}' was not found.");
 
+        booking.Cancel(timeProvider.GetUtcNow());
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public const int MaxPageSize = 50;
+
+    public async Task<PagedResult<BookingResponse>> GetForUserAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        BookingStatus? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var query = db.Bookings
+            .AsNoTracking()
+            .Where(b => b.UserId == userId);
+
+        if (status is not null)
+            query = query.Where(b => b.Status == status);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(b => b.StartTime)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToResponse)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<BookingResponse>(items, page, pageSize, totalCount);
+    }
 
 }
