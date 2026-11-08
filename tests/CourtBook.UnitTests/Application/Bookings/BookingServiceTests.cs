@@ -7,6 +7,8 @@ using CourtBook.Domain.ValueObjects;
 using CourtBook.UnitTests.TestData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
+using CourtBook.Application.Bookings.Pricing;
+using Microsoft.Extensions.Options;
 
 namespace CourtBook.UnitTests.Application.Bookings;
 
@@ -26,6 +28,10 @@ public sealed class BookingServiceTests : IDisposable
         new NoOverlapRule(),
         new MaxActiveBookingsPerUserRule()
     ];
+
+    // Ο πραγματικός υπολογιστής, με τις default τιμές (24 €/ώρα, 32 €/ώρα 18:00–22:00)
+    private static readonly BookingPriceCalculator PriceCalculator =
+        new(Options.Create(new PricingOptions()));
 
     public BookingServiceTests()
     {
@@ -59,7 +65,7 @@ public sealed class BookingServiceTests : IDisposable
     // Μια ήδη επιβεβαιωμένη κράτηση (για να υπάρχει από πριν στη βάση)
     private Booking ExistingBooking(Court court, int hour, int minutes = 90, Guid? userId = null)
     {
-        var booking = new Booking(court.Id, userId ?? _userId, Thursday(hour), Thursday(hour).AddMinutes(minutes), DomainFactory.Now);
+        var booking = new Booking(court.Id, userId ?? _userId, Thursday(hour), Thursday(hour).AddMinutes(minutes), new Money(48m), DomainFactory.Now);
         booking.Confirm();
         return booking;
     }
@@ -76,7 +82,8 @@ public sealed class BookingServiceTests : IDisposable
     private async Task<Guid> CreateBookingAsync(CreateBookingRequest request)
     {
         await using var context = _database.CreateContext();
-        var service = new BookingService(context, AllRules, _timeProvider);
+        var service = new BookingService(context, AllRules, PriceCalculator, _timeProvider);
+        
         return await service.CreateAsync(request);
     }
 
@@ -209,5 +216,25 @@ public sealed class BookingServiceTests : IDisposable
 
         // Assert: δύο σφάλματα, όχι μόνο το πρώτο
         Assert.Equal(2, exception.Errors.Count);
+    }
+
+    [Theory]
+    [InlineData(19, 48.00)]   // όλο σε αιχμή
+    [InlineData(17, 40.00)]   // μπαίνει στην αιχμή στις 18:00
+    [InlineData(10, 36.00)]   // εκτός αιχμής
+    public async Task CreateAsync_SavesCalculatedPrice(int hour, double expectedPrice)
+    {
+        // Arrange
+        var (center, court) = CenterWithCourt();
+        await SaveAsync(center);
+
+        // Act: κράτηση 90 λεπτών
+        var id = await CreateBookingAsync(Request(court, hour: hour));
+
+        // Assert: η τιμή αποθηκεύτηκε στη βάση
+        await using var context = _database.CreateContext();
+        var saved = await context.Bookings.SingleAsync(b => b.Id == id);
+
+        Assert.Equal(new Money((decimal)expectedPrice), saved.Price);
     }
 }

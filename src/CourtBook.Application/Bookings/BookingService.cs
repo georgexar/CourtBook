@@ -4,13 +4,17 @@ using CourtBook.Application.Common.Exceptions;
 using CourtBook.Application.Common.Interfaces;
 using CourtBook.Domain.Entities;
 using CourtBook.Domain.Enums;
+using CourtBook.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using CourtBook.Application.Bookings.Pricing;
+
 
 namespace CourtBook.Application.Bookings;
 
 internal sealed class BookingService(
     IAppDbContext db,
     IEnumerable<IBookingRule> rules,
+    BookingPriceCalculator priceCalculator,
     TimeProvider timeProvider) : IBookingService
 {
     public async Task<Guid> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
@@ -57,9 +61,11 @@ internal sealed class BookingService(
         if (errors.Count > 0)
             throw new BookingRuleViolationException(errors);
 
-        // 6. Δημιουργία, επιβεβαίωση, αποθήκευση
-        var booking = new Booking(court.Id, request.UserId, request.Start, request.End, timeProvider.GetUtcNow());
-        booking.Confirm();   // προς το παρόν χωρίς πληρωμή: επιβεβαίωση αμέσως
+        // 6. Τιμή, δημιουργία, επιβεβαίωση, αποθήκευση
+        var price = priceCalculator.Calculate(request.Start, request.End, AppTimeZone.Default);
+
+        var booking = new Booking(court.Id, request.UserId, request.Start, request.End, price, timeProvider.GetUtcNow());
+        booking.Confirm();
 
         db.Bookings.Add(booking);
         await db.SaveChangesAsync(cancellationToken);
@@ -72,7 +78,9 @@ internal sealed class BookingService(
         return await db.Bookings
             .AsNoTracking()
             .Where(b => b.Id == id)
-            .Select(b => new BookingResponse(b.Id, b.CourtId, b.UserId, b.StartTime, b.EndTime, b.Status))
+            .Select(b => new BookingResponse(
+                b.Id, b.CourtId, b.UserId, b.StartTime, b.EndTime, b.Status,
+                b.Price.Amount, b.Price.Currency))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

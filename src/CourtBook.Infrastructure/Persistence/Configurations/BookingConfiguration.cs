@@ -1,6 +1,7 @@
 ﻿using CourtBook.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using CourtBook.Domain.ValueObjects;
 
 namespace CourtBook.Infrastructure.Persistence.Configurations;
 
@@ -31,5 +32,20 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
 
         // Για γρήγορο «οι κρατήσεις μου»
         builder.HasIndex(b => b.UserId);
+
+        // Η τιμή είναι value object: γίνεται δύο στήλες στον πίνακα Bookings
+        builder.OwnsOne(b => b.Price, price =>
+        {
+            price.Property(p => p.Amount)
+                .HasColumnName("PriceAmount")
+                .HasPrecision(10, 2);
+
+            price.Property(p => p.Currency)
+                .HasColumnName("PriceCurrency")
+                .HasMaxLength(3);
+        });
+
+        builder.Navigation(b => b.Price).IsRequired();
+
     }
 }

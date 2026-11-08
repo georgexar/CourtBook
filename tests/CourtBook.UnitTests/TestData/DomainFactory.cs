@@ -1,5 +1,6 @@
 ﻿using CourtBook.Domain.Entities;
 using CourtBook.Domain.Enums;
+using CourtBook.Domain.ValueObjects;
 
 namespace CourtBook.UnitTests.TestData;
 
@@ -27,12 +28,13 @@ public static class DomainFactory
 
     public static Booking CreateBooking(
         DateTimeOffset? startTime = null,
-        TimeSpan? duration = null)
+        TimeSpan? duration = null,
+        Money? price = null)
     {
         var start = startTime ?? Now.AddDays(2);
         var end = start + (duration ?? TimeSpan.FromMinutes(90));
 
-        return new Booking(Guid.CreateVersion7(), Guid.CreateVersion7(), start, end, Now);
+        return new Booking(Guid.CreateVersion7(), Guid.CreateVersion7(), start, end, price ?? new Money(48m), Now);
     }
 
 }

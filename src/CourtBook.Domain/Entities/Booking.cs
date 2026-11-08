@@ -1,5 +1,7 @@
 ﻿using CourtBook.Domain.Common;
 using CourtBook.Domain.Enums;
+using CourtBook.Domain.ValueObjects;
+
 
 namespace CourtBook.Domain.Entities;
 
@@ -12,6 +14,7 @@ public class Booking : BaseEntity
     public DateTimeOffset StartTime { get; private set; }
     public DateTimeOffset EndTime { get; private set; }
     public BookingStatus Status { get; private set; }
+    public Money Price { get; private set; } = null!;
     public DateTimeOffset? CancelledAt { get; private set; }
     public bool IsLateCancellation { get; private set; }
 
@@ -22,7 +25,13 @@ public class Booking : BaseEntity
     // Για το EF Core
     private Booking() { }
 
-    public Booking(Guid courtId, Guid userId, DateTimeOffset startTime, DateTimeOffset endTime, DateTimeOffset now)
+    public Booking(
+       Guid courtId,
+       Guid userId,
+       DateTimeOffset startTime,
+       DateTimeOffset endTime,
+       Money price,
+       DateTimeOffset now)
     {
         CourtId = Guard.NotEmpty(courtId, nameof(CourtId));
         UserId = Guard.NotEmpty(userId, nameof(UserId));
@@ -35,6 +44,7 @@ public class Booking : BaseEntity
 
         StartTime = startTime;
         EndTime = endTime;
+        Price = price ?? throw new DomainException("Price is required.");
         Status = BookingStatus.Pending;
     }
 

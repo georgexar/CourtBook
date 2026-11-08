@@ -8,4 +8,6 @@ public record BookingResponse(
     Guid UserId,
     DateTimeOffset Start,
     DateTimeOffset End,
-    BookingStatus Status);
+    BookingStatus Status,
+    decimal Price,
+    string Currency);
