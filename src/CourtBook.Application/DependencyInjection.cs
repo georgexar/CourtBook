@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using CourtBook.Application.Bookings.Rules;
 using CourtBook.Application.Bookings;
+using CourtBook.Application.Bookings.Pricing;
 
 namespace CourtBook.Application;
 
@@ -19,8 +20,8 @@ public static class DependencyInjection
         services.AddSingleton<IBookingRule, WithinOpeningHoursRule>();
         services.AddSingleton<IBookingRule, NoOverlapRule>();
         services.AddSingleton<IBookingRule, MaxActiveBookingsPerUserRule>();
+        services.AddSingleton<BookingPriceCalculator>();
 
-       
 
 
         return services;

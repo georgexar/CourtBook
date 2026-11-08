@@ -3,7 +3,7 @@ using Scalar.AspNetCore;
 using CourtBook.Application;
 using CourtBook.Api.ErrorHandling;
 using System.Text.Json.Serialization;
-
+using CourtBook.Application.Bookings.Pricing;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +11,8 @@ var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
     ?? throw new InvalidOperationException("Connection string 'CourtBookDb' was not found.");
 
 builder.Services.AddApplication();
+builder.Services.Configure<PricingOptions>(
+    builder.Configuration.GetSection(PricingOptions.SectionName));
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
