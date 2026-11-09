@@ -4,7 +4,7 @@ using CourtBook.Application;
 using CourtBook.Api.ErrorHandling;
 using System.Text.Json.Serialization;
 using CourtBook.Application.Bookings.Pricing;
-
+using CourtBook.Infrastructure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
@@ -26,6 +26,7 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 app.UseExceptionHandler();
+await IdentitySeeder.SeedRolesAsync(app.Services);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

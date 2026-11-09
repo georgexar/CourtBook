@@ -2,10 +2,14 @@
 using Microsoft.EntityFrameworkCore;
 using CourtBook.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using CourtBook.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace CourtBook.Infrastructure.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IAppDbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
 {
     public DbSet<SportsCenter> SportsCenters => Set<SportsCenter>();
     public DbSet<Court> Courts => Set<Court>();
@@ -13,6 +17,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
         // Το SQLite (που χρησιμοποιούμε στα tests) δεν συγκρίνει DateTimeOffset.
