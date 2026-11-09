@@ -1,10 +1,13 @@
 ﻿using CourtBook.Application.Bookings;
 using Microsoft.AspNetCore.Mvc;
+using CourtBook.Application.Common.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CourtBook.Api.Controllers;
 
 [ApiController]
 [Route("api/courts/{courtId:guid}/availability")]
+[AllowAnonymous]
 public class CourtAvailabilityController(IBookingService bookingService) : ControllerBase
 {
     [HttpGet]

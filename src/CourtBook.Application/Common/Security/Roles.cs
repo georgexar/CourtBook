@@ -7,4 +7,7 @@ public static class Roles
     public const string Admin = "Admin";
 
     public static readonly IReadOnlyList<string> All = [Player, Manager, Admin];
+    
+    /// <summary>Για χρήση σε [Authorize(Roles = ...)]: επιτρέπει Manager Ή Admin.</summary>
+    public const string ManagerOrAdmin = Manager + "," + Admin;
 }

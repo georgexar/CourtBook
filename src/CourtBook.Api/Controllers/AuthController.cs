@@ -1,10 +1,13 @@
 ﻿using CourtBook.Application.Auth;
 using Microsoft.AspNetCore.Mvc;
+using CourtBook.Application.Common.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CourtBook.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
+[AllowAnonymous]
 public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost("register")]

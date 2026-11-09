@@ -2,6 +2,12 @@
 using Microsoft.AspNetCore.Mvc;
 using CourtBook.Application.Common;
 using CourtBook.Domain.Enums;
+using CourtBook.Application.Common.Security;
+using Microsoft.AspNetCore.Authorization;
+
+
+
+
 namespace CourtBook.Api.Controllers;
 
 [ApiController]

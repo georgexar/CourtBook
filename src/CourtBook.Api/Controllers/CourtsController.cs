@@ -1,10 +1,14 @@
 ﻿using CourtBook.Application.SportsCenters;
 using Microsoft.AspNetCore.Mvc;
+using CourtBook.Application.Common.Security;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace CourtBook.Api.Controllers;
 
 [ApiController]
 [Route("api/centers/{centerId:guid}/courts")]
+[Authorize(Roles = Roles.ManagerOrAdmin)]
 public class CourtsController(ISportsCenterService sportsCenterService) : ControllerBase
 {
     [HttpPost]

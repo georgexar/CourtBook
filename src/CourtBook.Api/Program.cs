@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using CourtBook.Application.Bookings.Pricing;
 using CourtBook.Infrastructure.Identity;
 using CourtBook.Infrastructure.Authentication;
+using CourtBook.Api.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
@@ -16,6 +17,7 @@ builder.Services.Configure<PricingOptions>(
     builder.Configuration.GetSection(PricingOptions.SectionName));
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -29,16 +31,18 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 app.UseExceptionHandler();
+app.UseStatusCodePages();
 await IdentitySeeder.SeedRolesAsync(app.Services);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
