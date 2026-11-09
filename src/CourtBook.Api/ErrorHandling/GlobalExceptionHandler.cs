@@ -17,7 +17,9 @@ public sealed class GlobalExceptionHandler(
         var (statusCode, title) = exception switch
         {
             DomainException => (StatusCodes.Status400BadRequest, "Validation error"),
+            ValidationFailedException => (StatusCodes.Status400BadRequest, "Validation error"),
             BookingRuleViolationException => (StatusCodes.Status400BadRequest, "Booking rules violated"),
+            UnauthorizedException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
             _ => (StatusCodes.Status500InternalServerError, "Server error")
         };
@@ -34,8 +36,15 @@ public sealed class GlobalExceptionHandler(
                 : exception.Message
         };
 
-        if (exception is BookingRuleViolationException ruleViolation)
-            problemDetails.Extensions["errors"] = ruleViolation.Errors;
+        IReadOnlyList<string>? errors = exception switch
+        {
+            BookingRuleViolationException e => e.Errors,
+            ValidationFailedException e => e.Errors,
+            _ => null
+        };
+
+        if (errors is not null)
+            problemDetails.Extensions["errors"] = errors;
 
         httpContext.Response.StatusCode = statusCode;
 

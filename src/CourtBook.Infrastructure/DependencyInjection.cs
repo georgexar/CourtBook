@@ -6,6 +6,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using CourtBook.Application.Common.Interfaces;
 using CourtBook.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using CourtBook.Application.Auth;
+using CourtBook.Infrastructure.Authentication;
+
 
 namespace CourtBook.Infrastructure;
 
@@ -40,6 +43,9 @@ public static class DependencyInjection
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>();
+
+        services.AddSingleton<TokenService>();
+        services.AddScoped<IAuthService, AuthService>();
         return services;
     }
 }
