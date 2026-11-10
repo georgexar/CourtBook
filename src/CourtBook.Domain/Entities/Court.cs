@@ -11,7 +11,7 @@ public class Court : BaseEntity
     public string Name { get; private set; } = null!;
     public SportType SportType { get; private set; }
     public bool IsActive { get; private set; }
-
+    public int BookingVersion { get; private set; }
     // Για το EF Core
     private Court() { }
 
@@ -27,4 +27,10 @@ public class Court : BaseEntity
     public void Deactivate() => IsActive = false;
 
     public void Activate() => IsActive = true;
+
+    /// <summary>
+    /// Καλείται όταν δημιουργείται νέα κράτηση στο γήπεδο.
+    /// Αλλάζει την έκδοση ώστε ταυτόχρονες κρατήσεις να εντοπίζονται ως σύγκρουση.
+    /// </summary>
+    public void RegisterBooking() => BookingVersion++;
 }

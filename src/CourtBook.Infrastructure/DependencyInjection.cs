@@ -8,7 +8,7 @@ using CourtBook.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using CourtBook.Application.Auth;
 using CourtBook.Infrastructure.Authentication;
-
+using CourtBook.Application.Users;
 
 namespace CourtBook.Infrastructure;
 
@@ -46,6 +46,7 @@ public static class DependencyInjection
 
         services.AddSingleton<TokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserAdministrationService, UserAdministrationService>();
         return services;
     }
 }

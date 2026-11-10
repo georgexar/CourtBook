@@ -21,6 +21,7 @@ public sealed class GlobalExceptionHandler(
             BookingRuleViolationException => (StatusCodes.Status400BadRequest, "Booking rules violated"),
             UnauthorizedException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
+            ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             _ => (StatusCodes.Status500InternalServerError, "Server error")
         };
 

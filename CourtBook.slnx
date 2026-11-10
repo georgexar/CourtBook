@@ -6,6 +6,7 @@
     <Project Path="src/CourtBook.Infrastructure/CourtBook.Infrastructure.csproj" Id="9c35eea0-cd3f-419c-aaeb-d4d6d6cb6627" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CourtBook.IntegrationTests/CourtBook.IntegrationTests.csproj" Id="363c0f02-4e64-4078-b8ff-27b9a29d4915" />
     <Project Path="tests/CourtBook.UnitTests/CourtBook.UnitTests.csproj" Id="96e84449-5f31-4f89-8e5b-96d62b07f8b5" />
   </Folder>
 </Solution>

@@ -32,7 +32,7 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
-await IdentitySeeder.SeedRolesAsync(app.Services);
+await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

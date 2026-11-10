@@ -23,5 +23,8 @@ public class CourtConfiguration : IEntityTypeConfiguration<Court>
         // Όχι δύο γήπεδα με το ίδιο όνομα στο ίδιο κέντρο, και στη βάση
         builder.HasIndex(c => new { c.SportsCenterId, c.Name })
             .IsUnique();
+
+        builder.Property(c => c.BookingVersion)
+       .IsConcurrencyToken();
     }
 }

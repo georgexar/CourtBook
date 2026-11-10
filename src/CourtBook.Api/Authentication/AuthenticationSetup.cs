@@ -3,6 +3,7 @@ using CourtBook.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using CourtBook.Application.Common.Interfaces;
 
 namespace CourtBook.Api.Authentication;
 
@@ -47,6 +48,9 @@ public static class AuthenticationSetup
             .SetFallbackPolicy(new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build());
+
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, CurrentUser>();
 
         return services;
     }

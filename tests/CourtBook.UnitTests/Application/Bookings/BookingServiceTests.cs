@@ -1,14 +1,15 @@
 ﻿using CourtBook.Application.Bookings;
+using CourtBook.Application.Bookings.Pricing;
 using CourtBook.Application.Bookings.Rules;
 using CourtBook.Application.Common.Exceptions;
+using CourtBook.Application.Common.Security;  
 using CourtBook.Domain.Entities;
 using CourtBook.Domain.Enums;
 using CourtBook.Domain.ValueObjects;
 using CourtBook.UnitTests.TestData;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Time.Testing;
-using CourtBook.Application.Bookings.Pricing;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
 namespace CourtBook.UnitTests.Application.Bookings;
 
@@ -18,6 +19,7 @@ public sealed class BookingServiceTests : IDisposable
     private readonly FakeTimeProvider _timeProvider = new(DomainFactory.Now);
     private readonly SqliteTestDatabase _database;
     private readonly Guid _userId = Guid.CreateVersion7();
+    private readonly FakeCurrentUser _currentUser;  
 
     // Οι ΠΡΑΓΜΑΤΙΚΟΙ κανόνες, όπως στην εφαρμογή
     private static readonly IBookingRule[] AllRules =
@@ -36,6 +38,7 @@ public sealed class BookingServiceTests : IDisposable
     public BookingServiceTests()
     {
         _database = new SqliteTestDatabase(_timeProvider);
+        _currentUser = new FakeCurrentUser { UserId = _userId };  
     }
 
     public void Dispose() => _database.Dispose();
@@ -58,9 +61,9 @@ public sealed class BookingServiceTests : IDisposable
     private static DateTimeOffset Thursday(int hour, int minute = 0) =>
         new(2026, 11, 12, hour, minute, 0, TimeSpan.FromHours(2));
 
-    // Ένα request κράτησης
-    private CreateBookingRequest Request(Court court, int hour, int minute = 0, int minutes = 90, Guid? userId = null) =>
-        new(court.Id, userId ?? _userId, Thursday(hour, minute), Thursday(hour, minute).AddMinutes(minutes));
+    // Ένα request κράτησης (χωρίς userId: ο χρήστης έρχεται από το _currentUser)  
+    private static CreateBookingRequest Request(Court court, int hour, int minute = 0, int minutes = 90) =>
+        new(court.Id, Thursday(hour, minute), Thursday(hour, minute).AddMinutes(minutes));
 
     // Μια ήδη επιβεβαιωμένη κράτηση (για να υπάρχει από πριν στη βάση)
     private Booking ExistingBooking(Court court, int hour, int minutes = 90, Guid? userId = null)
@@ -78,13 +81,28 @@ public sealed class BookingServiceTests : IDisposable
         await context.SaveChangesAsync();
     }
 
+    // Φτιάχνει το service με όλες τις εξαρτήσεις του (σε ΕΝΑ σημείο)  
+    private BookingService CreateService(CourtBook.Infrastructure.Persistence.AppDbContext context) =>
+        new(context, _currentUser, AllRules, PriceCalculator, _timeProvider);
+
     // Act: καλεί το service με δικό του context (σαν ένα HTTP request)
     private async Task<Guid> CreateBookingAsync(CreateBookingRequest request)
     {
         await using var context = _database.CreateContext();
-        var service = new BookingService(context, AllRules, PriceCalculator, _timeProvider);
-        
-        return await service.CreateAsync(request);
+        return await CreateService(context).CreateAsync(request);
+    }
+
+    // Act: τρέχει κάτι στο service, με δικό του context
+    private async Task RunServiceAsync(Func<BookingService, Task> action)
+    {
+        await using var context = _database.CreateContext();
+        await action(CreateService(context));
+    }
+
+    private async Task<T> RunServiceAsync<T>(Func<BookingService, Task<T>> action)
+    {
+        await using var context = _database.CreateContext();
+        return await action(CreateService(context));
     }
 
     // Assert: πόσες κρατήσεις υπάρχουν στη βάση
@@ -92,18 +110,6 @@ public sealed class BookingServiceTests : IDisposable
     {
         await using var context = _database.CreateContext();
         return await context.Bookings.CountAsync();
-    }
-    // Act: τρέχει κάτι στο service, με δικό του context
-    private async Task RunServiceAsync(Func<BookingService, Task> action)
-    {
-        await using var context = _database.CreateContext();
-        await action(new BookingService(context, AllRules, PriceCalculator, _timeProvider));
-    }
-
-    private async Task<T> RunServiceAsync<T>(Func<BookingService, Task<T>> action)
-    {
-        await using var context = _database.CreateContext();
-        return await action(new BookingService(context, AllRules, PriceCalculator, _timeProvider));
     }
 
     // Assert: διαβάζει μια κράτηση φρέσκια από τη βάση
@@ -113,10 +119,10 @@ public sealed class BookingServiceTests : IDisposable
         return await context.Bookings.SingleAsync(b => b.Id == bookingId);
     }
 
-    // ========== Tests ==========
+    // ========== CreateAsync ==========
 
     [Fact]
-    public async Task CreateAsync_WithValidRequest_SavesConfirmedBooking()
+    public async Task CreateAsync_WithValidRequest_SavesConfirmedBookingForCurrentUser()
     {
         // Arrange
         var (center, court) = CenterWithCourt();
@@ -130,7 +136,7 @@ public sealed class BookingServiceTests : IDisposable
         var saved = await context.Bookings.SingleAsync(b => b.Id == id);
 
         Assert.Equal(court.Id, saved.CourtId);
-        Assert.Equal(_userId, saved.UserId);
+        Assert.Equal(_userId, saved.UserId);   // ο χρήστης ήρθε από το _currentUser
         Assert.Equal(Thursday(19), saved.StartTime);
         Assert.Equal(BookingStatus.Confirmed, saved.Status);
         Assert.Equal(DomainFactory.Now, saved.CreatedAt);
@@ -149,7 +155,7 @@ public sealed class BookingServiceTests : IDisposable
     [Fact]
     public async Task CreateAsync_WhenOverlappingBookingExistsInDatabase_ThrowsAndSavesNothing()
     {
-        // Arrange: στη βάση υπάρχει ήδη κράτηση 19:00–20:30
+        // Arrange: στη βάση υπάρχει ήδη κράτηση 19:00–20:30 (άλλου χρήστη)
         var (center, court) = CenterWithCourt();
         await SaveAsync(center);
         await SaveAsync(ExistingBooking(court, hour: 19, userId: Guid.CreateVersion7()));
@@ -184,7 +190,7 @@ public sealed class BookingServiceTests : IDisposable
     [Fact]
     public async Task CreateAsync_WhenUserHasThreeActiveBookings_ThrowsRuleViolation()
     {
-        // Arrange: ο χρήστης έχει ήδη 3 ενεργές κρατήσεις
+        // Arrange: ο τρέχων χρήστης έχει ήδη 3 ενεργές κρατήσεις
         var (center, court) = CenterWithCourt();
         await SaveAsync(center);
         await SaveAsync(
@@ -257,7 +263,7 @@ public sealed class BookingServiceTests : IDisposable
         Assert.Equal(new Money((decimal)expectedPrice), saved.Price);
     }
 
-    // ---------- CancelAsync ----------
+    // ========== CancelAsync ==========
 
     [Fact]
     public async Task CancelAsync_ByOwnerMoreThan24HoursBefore_CancelsWithoutLateFlag()
@@ -268,8 +274,8 @@ public sealed class BookingServiceTests : IDisposable
         await SaveAsync(center);
         await SaveAsync(booking);
 
-        // Act
-        await RunServiceAsync(service => service.CancelAsync(booking.Id, _userId));
+        // Act   ← ΑΛΛΑΓΗ ④: χωρίς userId
+        await RunServiceAsync(service => service.CancelAsync(booking.Id));
 
         // Assert
         var saved = await FindBookingAsync(booking.Id);
@@ -288,8 +294,8 @@ public sealed class BookingServiceTests : IDisposable
 
         _timeProvider.Advance(TimeSpan.FromHours(46));   // τώρα: Πέμπτη 10:00, 9 ώρες πριν
 
-        // Act
-        await RunServiceAsync(service => service.CancelAsync(booking.Id, _userId));
+        // Act   ← ΑΛΛΑΓΗ ④
+        await RunServiceAsync(service => service.CancelAsync(booking.Id));
 
         // Assert
         var saved = await FindBookingAsync(booking.Id);
@@ -299,28 +305,29 @@ public sealed class BookingServiceTests : IDisposable
     [Fact]
     public async Task CancelAsync_ByAnotherUser_ThrowsNotFoundAndKeepsBooking()
     {
-        // Arrange
+        // Arrange: η κράτηση ανήκει στον _userId
         var (center, court) = CenterWithCourt();
         var booking = ExistingBooking(court, hour: 19);
         await SaveAsync(center);
         await SaveAsync(booking);
 
-        var anotherUser = Guid.CreateVersion7();
+        // ← ΑΛΛΑΓΗ ⑤: τώρα είναι συνδεδεμένος ΑΛΛΟΣ χρήστης
+        _currentUser.UserId = Guid.CreateVersion7();
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            RunServiceAsync(service => service.CancelAsync(booking.Id, anotherUser)));
+            RunServiceAsync(service => service.CancelAsync(booking.Id)));
 
         var saved = await FindBookingAsync(booking.Id);
         Assert.Equal(BookingStatus.Confirmed, saved.Status);
     }
 
-    // ---------- GetForUserAsync ----------
+    // ========== GetMyBookingsAsync ==========  
 
     [Fact]
-    public async Task GetForUserAsync_ReturnsOnlyUsersBookingsNewestFirstInPages()
+    public async Task GetMyBookingsAsync_ReturnsOnlyCurrentUsersBookingsNewestFirstInPages()
     {
-        // Arrange: 3 κρατήσεις του χρήστη, 1 άλλου χρήστη
+        // Arrange: 3 κρατήσεις του τρέχοντος χρήστη, 1 άλλου χρήστη
         var (center, court) = CenterWithCourt();
         await SaveAsync(center);
         await SaveAsync(
@@ -330,8 +337,8 @@ public sealed class BookingServiceTests : IDisposable
             ExistingBooking(court, hour: 14, userId: Guid.CreateVersion7()));
 
         // Act
-        var firstPage = await RunServiceAsync(service => service.GetForUserAsync(_userId, page: 1, pageSize: 2));
-        var secondPage = await RunServiceAsync(service => service.GetForUserAsync(_userId, page: 2, pageSize: 2));
+        var firstPage = await RunServiceAsync(service => service.GetMyBookingsAsync(page: 1, pageSize: 2));
+        var secondPage = await RunServiceAsync(service => service.GetMyBookingsAsync(page: 2, pageSize: 2));
 
         // Assert: σελίδα 1 → 12:00, 10:00
         Assert.Equal(3, firstPage.TotalCount);
@@ -346,7 +353,7 @@ public sealed class BookingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetForUserAsync_WithStatusFilter_ReturnsOnlyMatchingBookings()
+    public async Task GetMyBookingsAsync_WithStatusFilter_ReturnsOnlyMatchingBookings()
     {
         // Arrange: 2 confirmed, 1 cancelled
         var (center, court) = CenterWithCourt();
@@ -362,10 +369,47 @@ public sealed class BookingServiceTests : IDisposable
 
         // Act
         var result = await RunServiceAsync(service =>
-            service.GetForUserAsync(_userId, page: 1, pageSize: 10, status: BookingStatus.Cancelled));
+            service.GetMyBookingsAsync(page: 1, pageSize: 10, status: BookingStatus.Cancelled));
 
         // Assert
         var only = Assert.Single(result.Items);
         Assert.Equal(BookingStatus.Cancelled, only.Status);
+    }
+
+    // ========== GetByIdAsync: ποιος βλέπει τι ==========   ← ΝΕΑ TESTS
+
+    [Fact]
+    public async Task GetByIdAsync_ForAnotherUsersBooking_ReturnsNull()
+    {
+        // Arrange: κράτηση άλλου χρήστη
+        var (center, court) = CenterWithCourt();
+        var othersBooking = ExistingBooking(court, hour: 19, userId: Guid.CreateVersion7());
+        await SaveAsync(center);
+        await SaveAsync(othersBooking);
+
+        // Act: ο τρέχων χρήστης (Player) ζητάει την κράτηση του άλλου
+        var result = await RunServiceAsync(service => service.GetByIdAsync(othersBooking.Id));
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_AsManager_CanSeeAnyBooking()
+    {
+        // Arrange
+        var (center, court) = CenterWithCourt();
+        var othersBooking = ExistingBooking(court, hour: 19, userId: Guid.CreateVersion7());
+        await SaveAsync(center);
+        await SaveAsync(othersBooking);
+
+        _currentUser.Roles.Add(Roles.Manager);
+
+        // Act
+        var result = await RunServiceAsync(service => service.GetByIdAsync(othersBooking.Id));
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(othersBooking.Id, result.Id);
     }
 }

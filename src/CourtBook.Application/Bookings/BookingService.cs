@@ -8,11 +8,14 @@ using CourtBook.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using CourtBook.Application.Bookings.Pricing;
 using System.Linq.Expressions;
+using CourtBook.Application.Common.Security;
+
 
 namespace CourtBook.Application.Bookings;
 
 internal sealed class BookingService(
     IAppDbContext db,
+    ICurrentUser currentUser,
     IEnumerable<IBookingRule> rules,
     BookingPriceCalculator priceCalculator,
     TimeProvider timeProvider) : IBookingService
@@ -33,6 +36,7 @@ internal sealed class BookingService(
 
     public async Task<Guid> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
     {
+        var userId = currentUser.UserId;
         // 1. Το κέντρο που έχει αυτό το γήπεδο, με όλα τα γήπεδα και το ωράριό του
         var center = await db.SportsCenters
             .Include(c => c.Courts)
@@ -51,7 +55,7 @@ internal sealed class BookingService(
 
         // 3. Πόσες ενεργές κρατήσεις έχει ήδη ο χρήστης
         var userActiveBookings = await db.Bookings
-            .CountAsync(b => b.UserId == request.UserId
+            .CountAsync(b => b.UserId == userId
                           && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed),
                         cancellationToken);
 
@@ -59,7 +63,7 @@ internal sealed class BookingService(
         var context = new BookingRuleContext(
             Center: center,
             Court: court,
-            UserId: request.UserId,
+            UserId: userId,
             Start: request.Start,
             End: request.End,
             ExistingBookingsOnCourt: existingBookings,
@@ -78,20 +82,33 @@ internal sealed class BookingService(
         // 6. Τιμή, δημιουργία, επιβεβαίωση, αποθήκευση
         var price = priceCalculator.Calculate(request.Start, request.End, AppTimeZone.Default);
 
-        var booking = new Booking(court.Id, request.UserId, request.Start, request.End, price, timeProvider.GetUtcNow());
+        var booking = new Booking(court.Id, userId, request.Start, request.End, price, timeProvider.GetUtcNow());
         booking.Confirm();
 
+        court.RegisterBooking();          // ← ΝΕΟ: «αγγίζει» το γήπεδο
         db.Bookings.Add(booking);
-        await db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException(
+                "The court was booked by someone else at the same time. Please check availability and try again.");
+        }
 
         return booking.Id;
     }
 
     public async Task<BookingResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var userId = currentUser.UserId;
+        var isStaff = currentUser.IsInRole(Roles.Manager) || currentUser.IsInRole(Roles.Admin);
+
         return await db.Bookings
             .AsNoTracking()
-            .Where(b => b.Id == id)
+            .Where(b => b.Id == id && (isStaff || b.UserId == userId))
             .Select(ToResponse)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -142,8 +159,10 @@ internal sealed class BookingService(
 
         return new AvailabilityResponse(courtId, date, durationMinutes, slots);
     }
-    public async Task CancelAsync(Guid bookingId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task CancelAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
+        var userId = currentUser.UserId;
+
         var booking = await db.Bookings
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.UserId == userId, cancellationToken)
             ?? throw new NotFoundException($"Booking '{bookingId}' was not found.");
@@ -155,13 +174,13 @@ internal sealed class BookingService(
 
     public const int MaxPageSize = 50;
 
-    public async Task<PagedResult<BookingResponse>> GetForUserAsync(
-        Guid userId,
+    public async Task<PagedResult<BookingResponse>> GetMyBookingsAsync(
         int page,
         int pageSize,
         BookingStatus? status = null,
         CancellationToken cancellationToken = default)
     {
+        var userId = currentUser.UserId;
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 

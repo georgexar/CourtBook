@@ -15,10 +15,9 @@ public interface IBookingService
        int durationMinutes,
        CancellationToken cancellationToken = default);
 
-    Task CancelAsync(Guid bookingId, Guid userId, CancellationToken cancellationToken = default);
+    Task CancelAsync(Guid bookingId, CancellationToken cancellationToken = default);
 
-    Task<PagedResult<BookingResponse>> GetForUserAsync(
-       Guid userId,
+    Task<PagedResult<BookingResponse>> GetMyBookingsAsync(
        int page,
        int pageSize,
        BookingStatus? status = null,
