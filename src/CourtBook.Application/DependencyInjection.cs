@@ -12,7 +12,7 @@ public static class DependencyInjection
     {
         services.AddScoped<ISportsCenterService, SportsCenterService>();
         services.AddScoped<IBookingService, BookingService>();
-
+        services.AddScoped<IBookingMaintenanceService, BookingMaintenanceService>();
 
         // Κανόνες κράτησης (Strategy pattern): νέος κανόνας = μία γραμμή εδώ
         services.AddSingleton<IBookingRule, CourtMustBeActiveRule>();

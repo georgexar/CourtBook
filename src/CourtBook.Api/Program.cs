@@ -1,13 +1,14 @@
-using CourtBook.Infrastructure;
-using Scalar.AspNetCore;
-using CourtBook.Application;
-using CourtBook.Api.ErrorHandling;
-using System.Text.Json.Serialization;
-using CourtBook.Application.Bookings.Pricing;
-using CourtBook.Infrastructure.Identity;
-using CourtBook.Infrastructure.Authentication;
 using CourtBook.Api.Authentication;
+using CourtBook.Api.ErrorHandling;
+using CourtBook.Application;
+using CourtBook.Application.Bookings.Pricing;
+using CourtBook.Infrastructure;
+using CourtBook.Infrastructure.Authentication;
+using CourtBook.Infrastructure.Identity;
+using CourtBook.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Scalar.AspNetCore;
+using System.Text.Json.Serialization;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +35,10 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await DatabaseMigrator.MigrateAsync(app.Services);
+}
 await IdentitySeeder.SeedAsync(app.Services, app.Configuration);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
