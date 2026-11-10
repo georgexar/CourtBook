@@ -7,6 +7,8 @@ using CourtBook.Application.Bookings.Pricing;
 using CourtBook.Infrastructure.Identity;
 using CourtBook.Infrastructure.Authentication;
 using CourtBook.Api.Authentication;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("CourtBookDb")
@@ -46,6 +48,16 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false          // κανένας έλεγχος: αρκεί που απαντάμε
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")   // μόνο οι έλεγχοι με ετικέτα "ready"
+}).AllowAnonymous();
+
 
 app.Run();
 

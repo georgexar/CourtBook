@@ -47,6 +47,9 @@ public static class DependencyInjection
         services.AddSingleton<TokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAdministrationService, UserAdministrationService>();
+
+        services.AddHealthChecks()
+            .AddDbContextCheck<AppDbContext>(name: "database", tags: ["ready"]);
         return services;
     }
 }
