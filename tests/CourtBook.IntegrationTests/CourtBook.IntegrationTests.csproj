@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.15" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Testcontainers.MsSql" Version="4.16.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -16,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\CourtBook.Api\CourtBook.Api.csproj" />
     <ProjectReference Include="..\..\src\CourtBook.Application\CourtBook.Application.csproj" />
     <ProjectReference Include="..\..\src\CourtBook.Infrastructure\CourtBook.Infrastructure.csproj" />
   </ItemGroup>
